@@ -1,0 +1,21 @@
+version: '3.4'
+
+name: sqs-daemon
+
+services:
+  daemon:
+    image: sqsd
+    build:
+      context: .
+      dockerfile: Daemon/Dockerfile
+  api:
+     image: api
+     build:
+       context: .
+       dockerfile: Tests/Api.Sample/Dockerfile
+
+
+networks:
+  bridgy-by:
+    driver: bridge
+    

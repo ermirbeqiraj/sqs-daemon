@@ -1,0 +1,30 @@
+version: '3.4'
+
+services:
+  # the worker
+  daemon:
+    environment:
+      - SQSD_APIBASE=http://api:5050
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5200
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=
+      - AWS_SECRET_ACCESS_KEY=
+    expose:
+      - "5200"
+    ports:
+      - "5200:5200"
+    networks:
+      - bridgy-by
+  
+  # a sample api
+  api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5050
+    expose:
+      - "5050" 
+    ports:
+      - "5050:5050"
+    networks:
+      - bridgy-by
