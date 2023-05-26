@@ -2,7 +2,7 @@
 
 public class ApiSettingsResponse
 {
-    public string QueueUrl { get; set; } = string.Empty;
+    public string? QueueUrl { get; set; }
     public int ApiMaxConcurrency { get; set; }
     public int VisibilityTimeout { get; set; }
     public int ErrorVisibilityTimeout { get; set; }

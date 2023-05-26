@@ -1,4 +1,5 @@
-﻿using Daemon.ApplicationServices;
+﻿using Daemon.ApplicationModels;
+using Daemon.ApplicationServices;
 using Infrastructure.HttpService;
 using Infrastructure.QueueService;
 
@@ -21,19 +22,18 @@ public class ExecutorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        const int maxSqsMsgs = 10;
         var config = await _configurationService.GetConfigurations();
 
         var semaphoreSlim = new SemaphoreSlim(config.ApiMaxConcurrency, config.ApiMaxConcurrency);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var slotsAvailable = semaphoreSlim.CurrentCount <= maxSqsMsgs ? semaphoreSlim.CurrentCount : maxSqsMsgs;
+            var slotsAvailable = GetAvailableSlots(semaphoreSlim.CurrentCount);
 
             while (slotsAvailable == 0)
             {
                 await Task.Delay(1_000, stoppingToken);
-                slotsAvailable = semaphoreSlim.CurrentCount <= maxSqsMsgs ? semaphoreSlim.CurrentCount : maxSqsMsgs;
+                slotsAvailable = GetAvailableSlots(semaphoreSlim.CurrentCount);
             }
 
 
@@ -64,6 +64,13 @@ public class ExecutorService : BackgroundService
                 }, stoppingToken);
             }
         }
+    }
+
+    private static int GetAvailableSlots(int semaphoreCurrentAvailability)
+    {
+        return semaphoreCurrentAvailability <= Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES
+                                                                    ? semaphoreCurrentAvailability
+                                                                    : Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES;
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)
