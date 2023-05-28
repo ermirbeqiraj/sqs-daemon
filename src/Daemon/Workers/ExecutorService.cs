@@ -66,7 +66,7 @@ public class ExecutorService : BackgroundService
         }
     }
 
-    private static int GetAvailableSlots(int semaphoreCurrentAvailability)
+    public static int GetAvailableSlots(int semaphoreCurrentAvailability)
     {
         return semaphoreCurrentAvailability <= Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES
                                                                     ? semaphoreCurrentAvailability
