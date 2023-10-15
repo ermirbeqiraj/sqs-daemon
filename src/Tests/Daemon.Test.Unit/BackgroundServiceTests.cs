@@ -4,75 +4,81 @@ using Daemon.Test.Unit.Fakes;
 using Daemon.Workers;
 using Infrastructure.HttpService;
 using Infrastructure.HttpService.Dto;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace Daemon.Test.Unit;
 public class BackgroundServiceTests
 {
-    [Fact]
-    public async Task Execute_WhenGivenEnoughTime_QueueIsDrained()
-    {
-        var apiResponse = SampleResponse(10);
+	[Fact]
+	public async Task Execute_WhenGivenEnoughTime_QueueIsDrained()
+	{
+		var apiResponse = SampleResponse(10);
 
-        var configResult = new ApiSettings(apiResponse.QueueUrl!, apiResponse.ApiMaxConcurrency, apiResponse.VisibilityTimeout, apiResponse.ErrorVisibilityTimeout);
+		var configResult = new ApiSettings(apiResponse.QueueUrl!, apiResponse.ApiMaxConcurrency, apiResponse.VisibilityTimeout, apiResponse.ErrorVisibilityTimeout);
 
-        var apiServiceMoq = new Mock<IApiService>();
-        apiServiceMoq.Setup(x => x.GetConfiguration())
-                        .ReturnsAsync(apiResponse);
+		var apiServiceMoq = new Mock<IApiService>();
+		apiServiceMoq.Setup(x => x.GetConfiguration())
+						.ReturnsAsync(apiResponse);
 
-        apiServiceMoq.Setup(x => x.Request(It.IsAny<string>()))
-                        .Returns(Task.CompletedTask);
+		apiServiceMoq.Setup(x => x.Request(It.IsAny<string>()))
+						.Returns(Task.CompletedTask);
 
-        var iconfigMoq = new Mock<IConfigurationService>();
-        iconfigMoq.Setup(x => x.GetConfigurations())
-                    .ReturnsAsync(configResult);
+		var iconfigMoq = new Mock<IConfigurationService>();
+		iconfigMoq.Setup(x => x.GetConfigurations())
+					.ReturnsAsync(configResult);
 
-        var queueService = new QueueServiceFake(12);
-        var mock = new Mock<ILogger<ExecutorService>>();
+		var queueService = new QueueServiceFake(12);
+		var mock = new Mock<ILogger<ExecutorService>>();
 
-        var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.CancelAfter(20_000);
 
-        var service = new ExecutorService(queueService, apiServiceMoq.Object, iconfigMoq.Object, mock.Object);
-        await service.StartAsync(cancellationTokenSource.Token);
+		var serviceCollection = new ServiceCollection();
+		serviceCollection.AddTransient<ConsumerService>(x => new ConsumerService(apiServiceMoq.Object, queueService, Mock.Of<ILogger<ConsumerService>>()));
+		var prov = serviceCollection.BuildServiceProvider();
 
-        while (!cancellationTokenSource.IsCancellationRequested && queueService.Queue.Any())
-        {
-            await Task.Delay(500);
-        }
+		var cancellationTokenSource = new CancellationTokenSource();
+		cancellationTokenSource.CancelAfter(20_000);
 
-        Assert.Empty(queueService.Queue);
-    }
+		var service = new ExecutorService(queueService, iconfigMoq.Object, mock.Object, prov);
+		await service.StartAsync(cancellationTokenSource.Token);
 
-    [Fact]
-    public void GetAvailableSlots_WhenGivenMoreThenCapacity_ReturnsMaxAcceptedBySQS()
-    {
-        var moreThenCapacity = Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES + 5;
+		while (!cancellationTokenSource.IsCancellationRequested && queueService.Queue.Any())
+		{
+			await Task.Delay(500);
+		}
 
-        var availableSlots = ExecutorService.GetAvailableSlots(moreThenCapacity);
+		Assert.Empty(queueService.Queue);
+	}
 
-        Assert.Equal(Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES, availableSlots);
-    }
+	[Fact]
+	public void GetAvailableSlots_WhenGivenMoreThenCapacity_ReturnsMaxAcceptedBySQS()
+	{
+		var moreThenCapacity = Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES + 5;
 
-    [Fact]
-    public void GetAvailableSlots_WhenGivenLessThenCapacity_ReturnsFullNumber()
-    {
-        var lessThenCapacity = Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES - 5;
+		var availableSlots = ExecutorService.GetAvailableSlots(moreThenCapacity);
 
-        var availableSlots = ExecutorService.GetAvailableSlots(lessThenCapacity);
+		Assert.Equal(Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES, availableSlots);
+	}
 
-        Assert.Equal(lessThenCapacity, availableSlots);
-    }
+	[Fact]
+	public void GetAvailableSlots_WhenGivenLessThenCapacity_ReturnsFullNumber()
+	{
+		var lessThenCapacity = Constants.HardLimits.SQS_MAX_NUMBER_OF_MESSAGES - 5;
 
-    private static ApiSettingsResponse SampleResponse(int concurrency)
-    {
-        return new ApiSettingsResponse
-        {
-            ApiMaxConcurrency = concurrency,
-            ErrorVisibilityTimeout = 60,
-            QueueUrl = "http://queue-url",
-            VisibilityTimeout = 300
-        };
-    }
+		var availableSlots = ExecutorService.GetAvailableSlots(lessThenCapacity);
+
+		Assert.Equal(lessThenCapacity, availableSlots);
+	}
+
+	private static ApiSettingsResponse SampleResponse(int concurrency)
+	{
+		return new ApiSettingsResponse
+		{
+			ApiMaxConcurrency = concurrency,
+			ErrorVisibilityTimeout = 60,
+			QueueUrl = "http://queue-url",
+			VisibilityTimeout = 300
+		};
+	}
 }

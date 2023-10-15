@@ -5,7 +5,7 @@ namespace Daemon.Test.Unit.Fakes;
 internal class QueueServiceFake : IQueueService
 {
     internal readonly Dictionary<string, MessageWrapper> Queue = new();
-    private static object _lock = new();
+    private static readonly object _lock = new();
 
     public QueueServiceFake(int messageCount)
     {

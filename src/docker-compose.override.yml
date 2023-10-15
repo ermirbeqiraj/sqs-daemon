@@ -8,8 +8,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5200
       - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=
-      - AWS_SECRET_ACCESS_KEY=
+      - AWS_ACCESS_KEY_ID=${YOUR-ENV-VAR}
+      - AWS_SECRET_ACCESS_KEY=${YOUR-ENV-VAR}
     expose:
       - "5200"
     ports:
